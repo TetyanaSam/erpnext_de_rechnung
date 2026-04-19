@@ -45,10 +45,19 @@ def set_leistungszeitraum_anzeige(doc, method=None):
             doc.leistungszeitraum_anzeige = ""
     elif typ == "Monat/Jahr":
         von = doc.get("leistungszeitraum_von")
+        doc.leistungszeitraum_bis = None
         if von:
             from frappe.utils import getdate
             d = getdate(von)
             doc.leistungszeitraum_anzeige = f"{GERMAN_MONTHS[d.month]} {d.year}"
+        else:
+            doc.leistungszeitraum_anzeige = ""
+    elif typ == "Datum":
+        von = doc.get("leistungszeitraum_von")
+        doc.leistungszeitraum_bis = None
+        if von:
+            from frappe.utils import formatdate
+            doc.leistungszeitraum_anzeige = formatdate(von, 'dd.MM.yyyy')
         else:
             doc.leistungszeitraum_anzeige = ""
     else:

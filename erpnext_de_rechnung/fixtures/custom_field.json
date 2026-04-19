@@ -95,7 +95,7 @@
   "name": "Sales Invoice-leistungszeitraum_typ",
   "no_copy": 0,
   "non_negative": 0,
-  "options": "Datumsbereich\nMonat/Jahr",
+  "options": "Datumsbereich\nMonat/Jahr\nDatum",
   "permlevel": 0,
   "placeholder": null,
   "precision": null,
