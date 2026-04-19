@@ -7,6 +7,9 @@ GERMAN_MONTHS = {
 }
 
 def before_validate(doc, method=None):
+    # Capture the due_date as submitted from the form before ERPNext recalculates it
+    doc.flags.intended_due_date = doc.due_date
+
     if doc.payment_terms_template:
         return
     try:
@@ -24,6 +27,13 @@ def before_validate(doc, method=None):
         pass
 
 def set_leistungszeitraum_anzeige(doc, method=None):
+    # Restore due_date if ERPNext's set_payment_schedule() changed it
+    intended = doc.flags.get("intended_due_date")
+    if intended and doc.due_date != intended:
+        doc.due_date = intended
+        for row in doc.get("payment_schedule", []):
+            row.due_date = intended
+
     typ = doc.get("leistungszeitraum_typ")
     if typ == "Datumsbereich":
         von = doc.get("leistungszeitraum_von")
