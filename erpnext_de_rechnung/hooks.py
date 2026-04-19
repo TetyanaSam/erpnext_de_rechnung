@@ -19,6 +19,12 @@ fixtures = [
     {
         "dt": "Print Format",
         "filters": [["name", "=", "DE Rechnung"]]
+    },
+    {
+        "dt": "Property Setter",
+        "filters": [["doc_type", "=", "Sales Invoice Item"],
+                    ["field_name", "in", ["description", "warehouse"]],
+                    ["property", "=", "in_list_view"]]
     }
 ]
 
