@@ -8,7 +8,13 @@ app_license = "mit"
 fixtures = [
     {
         "dt": "Custom Field",
-        "filters": [["dt", "=", "Sales Invoice"], ["fieldname", "like", "leistungszeitraum%"]]
+        "filters": [["dt", "=", "Sales Invoice"], ["fieldname", "in",
+            ["leistungszeitraum_section", "leistungszeitraum_typ",
+             "leistungszeitraum_von", "leistungszeitraum_bis",
+             "leistungszeitraum_col", "leistungszeitraum_col2",
+             "leistungszeitraum_anzeige", "leistungszeitraum_datum",
+             "leistungszeitraum_monat", "leistungszeitraum_jahr",
+             "zweisprachig"]]]
     },
     {
         "dt": "Print Format",
