@@ -48,9 +48,10 @@ GERMAN_MONTHS = {
 }
 
 def before_validate(doc, method=None):
-    # Capture the due_date as submitted from the form before ERPNext recalculates it
-    doc.flags.intended_due_date = doc.due_date
-
+    # Auto-fill payment terms template from customer or company defaults so new
+    # invoices don't need manual selection. Leave explicit due_date alone — if
+    # the user typed a due date on the form, ERPNext may still recalculate it
+    # from the payment schedule, which is standard behavior.
     if doc.payment_terms_template:
         return
     try:
@@ -68,13 +69,6 @@ def before_validate(doc, method=None):
         pass
 
 def set_leistungszeitraum_anzeige(doc, method=None):
-    # Restore due_date if ERPNext's set_payment_schedule() changed it
-    intended = doc.flags.get("intended_due_date")
-    if intended and doc.due_date != intended:
-        doc.due_date = intended
-        for row in doc.get("payment_schedule", []):
-            row.due_date = intended
-
     typ = doc.get("leistungszeitraum_typ")
     if typ == "Datumsbereich":
         von = doc.get("leistungszeitraum_von")

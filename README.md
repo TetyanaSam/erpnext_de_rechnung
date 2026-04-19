@@ -18,12 +18,18 @@ German invoicing has a lot of small rules that stock ERPNext doesn't handle out 
 
 - **A purpose-built Print Format `DE Rechnung`** that replaces the default Sales Invoice PDF. Everything is laid out for an A4 page with a running page header (`Company · Invoice-No · Seite 1 / 2`) and a three-column footer (contact / tax / bank).
 - **Optional bilingual mode** (German + English) per invoice. One checkbox on the Sales Invoice form; labels, table headers, VAT rows, payment terms and month names all flip to two-language format. Months are properly localized (`März 2026 / March 2026`, not a date range).
-- **Leistungszeitraum field group** on every Sales Invoice with three types: `Monat/Jahr`, `Datum`, `Datumsbereich`. Always rendered as *Month Year* on the PDF — if you want a date range on the document you write it explicitly in the item description, which is the clean way to do it.
+- **Leistungszeitraum field group** on every Sales Invoice, with three display modes:
+    - `Monat/Jahr` → "April 2026" (bilingual: "April 2026 / April 2026")
+    - `Datum` → "15.04.2026"
+    - `Datumsbereich` → "01.04.2026 – 30.04.2026"
+
+  Pick the mode that fits the service; the PDF formats it accordingly. Month names are localized for the bilingual mode.
 - **Vorausrechnung detection**: if the posting date is before the service period starts, the document title automatically becomes `Vorausrechnung` (advance invoice) instead of `Rechnung`. Handy for recurring service contracts billed up-front.
-- **Due-date protection**: Frappe's default `set_payment_schedule()` loves to overwrite the due date you just typed. This app restores the user-intended due date after validation.
-- **Auto-fill payment terms** from the customer or company defaults, so you don't have to pick them manually on every new invoice.
-- **Pinned form layout** for Sales Invoice items. The relevant columns (`Artikel`, `Bezeichnung`) stay visible in the line-item table through cache clears, migrations and Customize Form edits — no more hunting for the item code after an update.
-- **Page-number safety**: no blank trailing page, no duplicate page-2 header, no garbled page counters — several wkhtmltopdf foot-guns are fixed in the layout.
+- **Auto-fill payment terms** from the customer or company defaults, so you don't have to pick them manually on every new invoice. The due date itself remains under your control — if you want to give a particular client more time, just set it on the invoice.
+- **Pinned form layout** for Sales Invoice items. The relevant columns (`Artikel`, `Bezeichnung`) stay visible in the line-item table through cache clears, migrations and Customize Form edits — no more hunting for the item code after an update. Enforced via an `after_migrate` hook so the setting survives updates.
+- **Page numbers in the running header** (`Seite 1 / 2` or bilingual `Seite / Page - 1 / 2`) — the default Frappe print pipeline doesn't place them by default.
+- **A running page header** on every page (company · invoice-no · page count), rendered by wkhtmltopdf as a true header-html so it repeats on continuation pages.
+- **A clean multi-page layout**: this app configures the margins and Frappe wrapper overrides so single-page invoices don't accidentally spill to a blank second page — a common gotcha when combining Frappe's header/footer HTML with custom CSS margins.
 
 ### What's inside
 
@@ -33,7 +39,7 @@ German invoicing has a lot of small rules that stock ERPNext doesn't handle out 
 | Custom Field `zweisprachig` | Bilingual switch (Check) on Sales Invoice |
 | Leistungszeitraum section | 7 custom fields grouping type, start/end, display text |
 | Property Setters | Persistent column visibility on the item table |
-| `before_validate` / `validate` hooks | Payment-terms auto-fill, due-date restore, Leistungszeitraum display text |
+| `before_validate` / `validate` hooks | Payment-terms auto-fill, Leistungszeitraum display text |
 | `after_migrate` hook | Re-asserts pinned form layout after every upgrade |
 
 ### Requirements
@@ -67,9 +73,9 @@ bench restart
 
 1. Open a new Sales Invoice, pick the customer, add items.
 2. Scroll to the **Leistungszeitraum** section. Pick a type:
-    - **Monat/Jahr** — most common. Pick any date in the month; the PDF prints just `April 2026`.
-    - **Datum** — one-off service on a specific date.
-    - **Datumsbereich** — a range. *The PDF still prints only the month*, so if you need "1.–15. April" literally, put that in the item description.
+    - **Monat/Jahr** — most common for monthly retainers. Pick any date in the month; the PDF prints `April 2026`.
+    - **Datum** — one-off service on a specific date. The PDF prints the exact date (`15.04.2026`).
+    - **Datumsbereich** — a specific date range. The PDF prints `01.04.2026 – 30.04.2026`.
 3. Save and submit.
 4. **Print → DE Rechnung → Download PDF**.
 
@@ -115,12 +121,17 @@ Die Standard-ERPNext-Rechnung ist pragmatisch, aber deutschlandtauglich ist sie 
 
 - **Druckvorlage `DE Rechnung`** — saubere, A4-optimierte Rechnung mit laufendem Seitenkopf (`Firma · Rechnungs-Nr · Seite 1 / 2`) und dreispaltigem Fuß (Kontakt / Steuer / Bank).
 - **Optionaler zweisprachiger Modus** (Deutsch + Englisch) pro Rechnung: ein Häkchen in der Rechnung und sämtliche Beschriftungen, Tabellenköpfe, MwSt-Zeilen, Zahlungsbedingungen und Monatsnamen erscheinen zweisprachig. Monate werden korrekt lokalisiert (`März 2026 / March 2026`).
-- **Leistungszeitraum-Block** mit drei Typen: `Monat/Jahr`, `Datum`, `Datumsbereich`. Auf dem PDF wird immer *Monat Jahr* ausgegeben — wenn Du einen echten Zeitraum brauchst, schreibst Du ihn direkt in die Artikelbeschreibung. Das ist aufgeräumter und nie missverständlich.
+- **Leistungszeitraum-Block** mit drei Darstellungsmodi:
+    - `Monat/Jahr` → "April 2026" (zweisprachig: "April 2026 / April 2026")
+    - `Datum` → "15.04.2026"
+    - `Datumsbereich` → "01.04.2026 – 30.04.2026"
+
+  Wähle den passenden Typ, das PDF formatiert entsprechend. Monatsnamen werden für den zweisprachigen Modus lokalisiert.
 - **Vorausrechnung automatisch**: Liegt das Rechnungsdatum vor dem Leistungszeitraum, wird aus der Rechnung automatisch eine *Vorausrechnung* — praktisch für Dauerschuldverhältnisse, die im Voraus abgerechnet werden.
-- **Fälligkeitsschutz**: Frappe überschreibt gern das Fälligkeitsdatum beim Speichern. Die App stellt den von Dir eingetragenen Wert wieder her.
-- **Zahlungsbedingungen vorbelegt** aus Kunde oder Firma — Du musst sie nicht bei jeder Rechnung neu auswählen.
-- **Formularlayout bleibt stabil**: Die Spalten *Artikel* und *Bezeichnung* in der Positionstabelle überstehen Cache-Reset, Migration und Customize-Form-Änderungen — nach einem Update suchst Du die Artikelnummer nie wieder.
-- **Leere Seite nach der Rechnung weg**, Seitenzählung korrekt, keine dupplizierten Kopfzeilen — mehrere klassische wkhtmltopdf-Stolpersteine sind sauber gelöst.
+- **Zahlungsbedingungen vorbelegt** aus Kunde oder Firma — Du musst sie nicht bei jeder Rechnung neu auswählen. Das Fälligkeitsdatum bleibt frei bearbeitbar, falls Du einem Kunden mal mehr Zeit geben willst.
+- **Formularlayout bleibt stabil**: Die Spalten *Artikel* und *Bezeichnung* in der Positionstabelle überstehen Cache-Reset, Migration und Customize-Form-Änderungen — nach einem Update suchst Du die Artikelnummer nie wieder. Abgesichert durch einen `after_migrate`-Hook.
+- **Seitenzählung im Kopf** (`Seite 1 / 2` oder zweisprachig `Seite / Page - 1 / 2`) — Frappe liefert das standardmäßig nicht mit.
+- **Sauberes Mehrseiten-Layout**: Die App stimmt die Seitenränder mit den Frappe-Wrapper-Überschreibungen ab, sodass einseitige Rechnungen nicht versehentlich auf eine leere Folgeseite überlaufen.
 
 ### Anforderungen
 
