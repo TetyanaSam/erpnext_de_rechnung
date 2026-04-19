@@ -1,5 +1,46 @@
 import frappe
 
+
+# Desired visibility of Sales Invoice Item child-table columns.
+# Keys are fieldnames on Sales Invoice Item; values are 1 (visible) or 0 (hidden).
+# Re-asserted by ensure_invoice_item_columns() on every `bench migrate`.
+INVOICE_ITEM_COLUMN_VISIBILITY = {
+    "item_code": 1,
+    "description": 1,
+    "warehouse": 0,
+}
+
+
+def ensure_invoice_item_columns():
+    """Idempotently enforce Property Setter values for Sales Invoice Item columns.
+
+    Frappe fixtures create missing Property Setters but won't override values
+    that a user later changed via Customize Form. We reapply the intended
+    state on every migrate so the form layout stays predictable.
+    """
+    for fieldname, value in INVOICE_ITEM_COLUMN_VISIBILITY.items():
+        name = f"Sales Invoice Item-{fieldname}-in_list_view"
+        if frappe.db.exists("Property Setter", name):
+            frappe.db.set_value("Property Setter", name, {
+                "value": str(value),
+                "module": "ERPNext DE Rechnung",
+            })
+        else:
+            frappe.get_doc({
+                "doctype": "Property Setter",
+                "name": name,
+                "doctype_or_field": "DocField",
+                "doc_type": "Sales Invoice Item",
+                "field_name": fieldname,
+                "property": "in_list_view",
+                "property_type": "Check",
+                "value": str(value),
+                "module": "ERPNext DE Rechnung",
+            }).insert(ignore_permissions=True)
+    frappe.clear_cache(doctype="Sales Invoice Item")
+    frappe.db.commit()
+
+
 GERMAN_MONTHS = {
     1: "Januar", 2: "Februar", 3: "März", 4: "April",
     5: "Mai", 6: "Juni", 7: "Juli", 8: "August",

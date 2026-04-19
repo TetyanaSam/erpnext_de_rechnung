@@ -34,3 +34,10 @@ doc_events = {
         "validate": "erpnext_de_rechnung.custom.sales_invoice.set_leistungszeitraum_anzeige"
     }
 }
+
+# Force our Sales Invoice Item column visibility after every migrate.
+# Fixtures alone only create missing rows; they don't overwrite values edited
+# via Customize Form. This hook re-asserts the desired state on each migrate.
+after_migrate = [
+    "erpnext_de_rechnung.custom.sales_invoice.ensure_invoice_item_columns"
+]
