@@ -41,3 +41,10 @@ doc_events = {
 after_migrate = [
     "erpnext_de_rechnung.custom.sales_invoice.ensure_invoice_item_columns"
 ]
+
+# Disable browser caching for PDF responses. Without this, mobile browsers and
+# PDF viewers keep serving a stale cached PDF after the source invoice has been
+# re-rendered, which forces users to clear their cache manually.
+after_request = [
+    "erpnext_de_rechnung.custom.pdf_cache.no_cache_pdf"
+]
