@@ -48,6 +48,40 @@ GERMAN_MONTHS = {
 }
 
 def before_validate(doc, method=None):
+    # On a freshly created (or duplicated) invoice, copy the auto-send flag
+    # default from the Company so the user doesn't have to remember to set it
+    # every time. They can still toggle it per-invoice before Submit.
+    if doc.is_new() and not doc.get("auto_send_email"):
+        try:
+            company = frappe.get_cached_doc("Company", doc.company)
+            if company.get("default_auto_send_email"):
+                doc.auto_send_email = 1
+        except Exception:
+            pass
+
+    # A duplicated Sales Invoice keeps the old payment_schedule rows, so the
+    # due_date doesn't update to reflect the new posting_date. Clear both
+    # when we detect a mismatch; ERPNext's set_payment_schedule() later in
+    # validate() will rebuild them from payment_terms_template + new dates.
+    try:
+        from frappe.utils import getdate
+        if doc.posting_date and doc.payment_terms_template and doc.get("payment_schedule"):
+            ps0 = doc.payment_schedule[0]
+            # If the first schedule entry's due_date was computed against an
+            # old posting_date, force recalc.
+            if ps0.due_date and ps0.get("credit_days"):
+                expected = getdate(doc.posting_date)
+                # ERPNext stores credit_days on each schedule row; we can
+                # re-derive the due_date from posting_date + credit_days to
+                # detect drift. If different, wipe and rebuild.
+                from datetime import timedelta
+                should_be = expected + timedelta(days=int(ps0.credit_days or 0))
+                if getdate(ps0.due_date) != should_be:
+                    doc.set("payment_schedule", [])
+                    doc.due_date = None
+    except Exception:
+        pass
+
     # Auto-fill payment terms template from customer or company defaults so new
     # invoices don't need manual selection. Leave explicit due_date alone — if
     # the user typed a due date on the form, ERPNext may still recalculate it

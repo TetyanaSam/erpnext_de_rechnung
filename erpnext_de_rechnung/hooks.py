@@ -22,8 +22,10 @@ fixtures = [
              "Sales Invoice-zweisprachig",
              "Sales Invoice-absender_im_anschriftenfeld",
              "Sales Invoice-steuerhinweis",
+             "Sales Invoice-auto_send_email",
              "Customer-steuerhinweis",
-             "Company-is_kleinunternehmer"]]]
+             "Company-is_kleinunternehmer",
+             "Company-default_auto_send_email"]]]
     },
     {
         "dt": "Print Format",
