@@ -33,9 +33,12 @@ fixtures = [
     },
     {
         "dt": "Property Setter",
-        "filters": [["doc_type", "=", "Sales Invoice Item"],
-                    ["field_name", "in", ["description", "warehouse", "item_code"]],
-                    ["property", "=", "in_list_view"]]
+        "filters": [["name", "in", [
+            "Sales Invoice Item-description-in_list_view",
+            "Sales Invoice Item-warehouse-in_list_view",
+            "Sales Invoice Item-item_code-in_list_view",
+            "Sales Invoice-contact_email-hidden",
+        ]]]
     }
 ]
 
