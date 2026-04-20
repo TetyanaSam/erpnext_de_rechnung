@@ -48,6 +48,21 @@ GERMAN_MONTHS = {
 }
 
 def before_validate(doc, method=None):
+    # Snapshot the Kleinunternehmer flag from the Company onto the invoice the
+    # first time we see this document. This locks the § 19 UStG status to the
+    # moment the invoice was created — reprinting historical invoices after a
+    # later transition out of Kleinunternehmer still renders the correct legal
+    # notice (GoBD requires each invoice to keep its original tax treatment).
+    # The field stays editable afterwards so edge cases (reverse-charge, export
+    # out of the Kleinunternehmer timeline) can be overridden by hand.
+    if doc.is_new() and not doc.get("is_kleinunternehmer"):
+        try:
+            company = frappe.get_cached_doc("Company", doc.company)
+            if company.get("is_kleinunternehmer"):
+                doc.is_kleinunternehmer = 1
+        except Exception:
+            pass
+
     # Auto-fill payment terms template from customer or company defaults so new
     # invoices don't need manual selection. Leave explicit due_date alone — if
     # the user typed a due date on the form, ERPNext may still recalculate it
