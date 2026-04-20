@@ -149,11 +149,11 @@ def on_submit_summary(doc, method=None):
             "Menu \"...\" → Email."
         )
 
-    frappe.msgprint(
-        "<br>".join(lines),
-        title=_("Status"),
-        indicator="green",
-    )
+    # Modal msgprint gets swallowed easily on mobile; pair it with a toast
+    # alert in the top-right so the user always sees the status.
+    message = "<br>".join(lines)
+    frappe.msgprint(message, title=_("Status"), indicator="green")
+    frappe.msgprint(message, alert=True, indicator="green")
 
 
 def set_leistungszeitraum_anzeige(doc, method=None):
