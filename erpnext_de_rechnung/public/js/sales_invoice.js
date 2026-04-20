@@ -1,21 +1,28 @@
 // Client-side refinements for Sales Invoice form.
 //
-// Problem 1: Duplicate leaves old payment_schedule → due_date looks stale
-// until the user saves. The user should be able to EYEBALL the correct
-// due_date before committing.
+// Three UX fixes:
 //
-// Problem 2: Duplicate also carries contact_email / contact_person from
-// the source invoice. If the Contact record was edited later (different
-// manager, new email), the duplicate still shows the old snapshot — a
-// silent footgun for the auto-send toggle.
-//
-// Both are fixed on form refresh for a freshly-loaded new doc: clear the
-// stale snapshots, re-trigger the standard handlers so ERPNext re-fetches
-// current data from the linked records.
+// (a) Duplicate leaves old payment_schedule with a stale due_date until Save.
+//     The user should be able to eyeball the correct due_date BEFORE
+//     committing.
+// (b) Duplicate also carries contact_email / contact_person from the source
+//     invoice. If the linked Contact record was edited later (different
+//     manager, new email), the duplicate still shows the old snapshot — a
+//     silent footgun for the auto-send toggle.
+// (c) A brand-new invoice needs payment_terms_template auto-filled from the
+//     Customer / Company so due_date can be computed immediately, not after
+//     the first Save. Our server hook does this, but only at validate time —
+//     too late for visual review.
 frappe.ui.form.on("Sales Invoice", {
 	refresh(frm) {
 		if (!frm.is_new()) return;
 		refresh_stale_copies(frm);
+		auto_fill_payment_terms(frm);
+	},
+
+	customer(frm) {
+		if (!frm.is_new()) return;
+		auto_fill_payment_terms(frm);
 	},
 
 	posting_date(frm) {
@@ -30,6 +37,26 @@ frappe.ui.form.on("Sales Invoice", {
 		}
 	},
 });
+
+function auto_fill_payment_terms(frm) {
+	if (!frm.doc.customer || frm.doc.payment_terms_template) return;
+
+	// Prefer the Customer's default, fall back to the Company's default.
+	frappe.db.get_value("Customer", frm.doc.customer, "payment_terms").then((r) => {
+		const from_customer = r.message && r.message.payment_terms;
+		if (from_customer) {
+			frm.set_value("payment_terms_template", from_customer);
+			return;
+		}
+		if (!frm.doc.company) return;
+		frappe.db.get_value("Company", frm.doc.company, "payment_terms").then((r2) => {
+			const from_company = r2.message && r2.message.payment_terms;
+			if (from_company) {
+				frm.set_value("payment_terms_template", from_company);
+			}
+		});
+	});
+}
 
 function refresh_stale_copies(frm) {
 	if (!frm.doc.customer) return;
