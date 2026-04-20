@@ -20,7 +20,10 @@ fixtures = [
              "Sales Invoice-leistungszeitraum_monat",
              "Sales Invoice-leistungszeitraum_jahr",
              "Sales Invoice-zweisprachig",
-             "Sales Invoice-absender_im_anschriftenfeld"]]]
+             "Sales Invoice-absender_im_anschriftenfeld",
+             "Sales Invoice-steuerhinweis",
+             "Customer-steuerhinweis",
+             "Company-is_kleinunternehmer"]]]
     },
     {
         "dt": "Print Format",
