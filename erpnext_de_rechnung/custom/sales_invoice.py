@@ -103,57 +103,86 @@ def before_validate(doc, method=None):
         pass
 
 def on_submit_summary(doc, method=None):
-    """Show a human-readable summary after Submit so the user never has to
-    guess whether the email was dispatched or to whom. Fires after the
-    standard Notification hook has enqueued the email (if any)."""
-    from frappe import _
+    """Produce a durable, user-visible summary of what happened at Submit:
+    whether the PDF got attached, and whether the auto-send email was
+    enqueued. Written as an Info-Comment on the document so it's always
+    visible in Activity (msgprint can get lost in submit-response race
+    conditions on mobile)."""
 
-    lines = [f"<b>{_('Rechnung wurde gebucht.')}</b>"]
+    # This hook runs BEFORE pdf_on_submit (which attaches the PDF) and
+    # BEFORE Notification (which queues the email) because Frappe runs
+    # doctype-specific hooks first, then wildcard ones. Defer the actual
+    # status check + comment to after_commit, when those sibling hooks
+    # have finished writing to the DB.
+    frappe.db.after_commit.add(lambda: _write_submit_comment(doc.name))
 
-    # PDF attached?
-    pdfs = frappe.get_all(
-        "File",
-        filters={
-            "attached_to_doctype": "Sales Invoice",
-            "attached_to_name": doc.name,
-            "file_name": ["like", "%.pdf"],
-        },
-        fields=["file_name"],
-    )
-    if pdfs:
-        lines.append(f"📎 PDF: <b>{pdfs[0].file_name}</b>")
 
-    # Email queued?
-    if doc.get("auto_send_email"):
-        recent_queue = frappe.get_all(
-            "Email Queue",
+def _write_submit_comment(name):
+    try:
+        pdfs = frappe.get_all(
+            "File",
             filters={
-                "reference_doctype": "Sales Invoice",
-                "reference_name": doc.name,
+                "attached_to_doctype": "Sales Invoice",
+                "attached_to_name": name,
+                "file_name": ["like", "%.pdf"],
             },
-            fields=["name", "status", "modified"],
-            order_by="modified desc",
-            limit=1,
-        )
-        if recent_queue:
-            recipient = doc.get("contact_email") or "?"
-            lines.append(
-                f"✉️ E-Mail an <b>{recipient}</b> in Warteschlange gestellt."
-                f" Wird innerhalb von ~1 Minute versendet."
-            )
-        else:
-            lines.append("⚠️ E-Mail-Versand aktiviert, aber keine Queue-Eintragung gefunden.")
-    else:
-        lines.append(
-            "☐ Auto-Versand ist ausgeschaltet. Um manuell zu senden: "
-            "Menu \"...\" → Email."
+            fields=["file_name"],
         )
 
-    # Modal msgprint gets swallowed easily on mobile; pair it with a toast
-    # alert in the top-right so the user always sees the status.
-    message = "<br>".join(lines)
-    frappe.msgprint(message, title=_("Status"), indicator="green")
-    frappe.msgprint(message, alert=True, indicator="green")
+        doc = frappe.db.get_value(
+            "Sales Invoice", name,
+            ["auto_send_email", "contact_email"], as_dict=True,
+        )
+
+        lines = []
+        if pdfs:
+            lines.append(f"📎 PDF angehängt: <b>{pdfs[0].file_name}</b>")
+        else:
+            lines.append("⚠️ Kein PDF angehängt.")
+
+        if doc.auto_send_email:
+            queued = frappe.db.count(
+                "Email Queue",
+                {"reference_doctype": "Sales Invoice", "reference_name": name},
+            )
+            if queued:
+                lines.append(
+                    f"✉️ E-Mail an <b>{doc.contact_email or '?'}</b> in "
+                    f"Warteschlange gestellt — Versand innerhalb von ~1 Minute."
+                )
+            else:
+                lines.append(
+                    "⚠️ Auto-Versand ist aktiviert, aber keine "
+                    "E-Mail-Queue-Eintragung gefunden."
+                )
+        else:
+            lines.append(
+                "☐ Auto-Versand ausgeschaltet. Manueller Versand: Menu "
+                "\"...\" → Email."
+            )
+
+        frappe.get_doc({
+            "doctype": "Comment",
+            "comment_type": "Info",
+            "reference_doctype": "Sales Invoice",
+            "reference_name": name,
+            "content": "<br>".join(lines),
+        }).insert(ignore_permissions=True)
+
+        # Also push a realtime toast so the user sees it without
+        # refreshing the page.
+        frappe.publish_realtime(
+            "msgprint",
+            {
+                "message": "<br>".join(lines),
+                "indicator": "green",
+                "alert": 1,
+            },
+            user=frappe.session.user,
+        )
+    except Exception:
+        # Never block the request path on summary-comment issues.
+        frappe.log_error(frappe.get_traceback(), "on_submit_summary")
 
 
 def set_leistungszeitraum_anzeige(doc, method=None):
