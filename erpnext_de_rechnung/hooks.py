@@ -35,6 +35,14 @@ doc_events = {
     }
 }
 
+# Append a cache-buster query param to PDF download URLs from the Desk.
+# Works together with the after_request no-store headers: fresh URL forces
+# the mobile browser to issue a real request, where it then sees and honors
+# the no-cache headers for future loads.
+app_include_js = [
+    "/assets/erpnext_de_rechnung/js/pdf_cache_bust.js"
+]
+
 # Force our Sales Invoice Item column visibility after every migrate.
 # Fixtures alone only create missing rows; they don't overwrite values edited
 # via Customize Form. This hook re-asserts the desired state on each migrate.
