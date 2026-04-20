@@ -18,11 +18,17 @@ frappe.ui.form.on("Sales Invoice", {
 		if (!frm.is_new()) return;
 		refresh_stale_copies(frm);
 		auto_fill_payment_terms(frm);
+		reset_auto_send_from_company(frm);
 	},
 
 	customer(frm) {
 		if (!frm.is_new()) return;
 		auto_fill_payment_terms(frm);
+	},
+
+	company(frm) {
+		if (!frm.is_new()) return;
+		reset_auto_send_from_company(frm);
 	},
 
 	posting_date(frm) {
@@ -37,6 +43,20 @@ frappe.ui.form.on("Sales Invoice", {
 		}
 	},
 });
+
+function reset_auto_send_from_company(frm) {
+	// On any freshly-loaded new or duplicated invoice, overwrite the
+	// auto-send flag with the Company's current default. This stops a
+	// duplicate from silently inheriting an old per-invoice setting that
+	// contradicts the company-wide policy.
+	if (!frm.doc.company) return;
+	frappe.db.get_value("Company", frm.doc.company, "default_auto_send_email").then((r) => {
+		const target = (r.message && r.message.default_auto_send_email) ? 1 : 0;
+		if (frm.doc.auto_send_email !== target) {
+			frm.set_value("auto_send_email", target);
+		}
+	});
+}
 
 function auto_fill_payment_terms(frm) {
 	if (!frm.doc.customer || frm.doc.payment_terms_template) return;
