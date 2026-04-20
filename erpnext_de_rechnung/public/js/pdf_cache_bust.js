@@ -38,7 +38,7 @@ frappe.after_ajax(() => {
 // bundle is loaded. Re-check on every page change.
 (function patch_drucken_button() {
 	function patch() {
-		const PV = frappe.ui?.form?.PrintView;
+		const PV = frappe.ui && frappe.ui.form && frappe.ui.form.PrintView;
 		if (!PV || !PV.prototype || PV.prototype._drucken_patched) {
 			return;
 		}
@@ -50,6 +50,21 @@ frappe.after_ajax(() => {
 			this.render_pdf();
 		};
 	}
-	frappe.after_ajax(patch);
-	$(document).on("page-change app_ready", patch);
+
+	// The PrintView class ships in frappe's print.bundle.js which is
+	// lazy-loaded the first time the user navigates to /app/print/...
+	// So patch at every reasonable moment and let the guard clause above
+	// no-op the repeats.
+	if (typeof frappe !== "undefined") {
+		patch();
+		if (frappe.after_ajax) frappe.after_ajax(patch);
+		if (frappe.router && typeof frappe.router.on === "function") {
+			frappe.router.on("change", patch);
+		}
+		// Last-resort polling for the case where route change event fires
+		// before the print bundle finishes loading.
+		setTimeout(patch, 1500);
+		setTimeout(patch, 4000);
+		setTimeout(patch, 8000);
+	}
 })();
