@@ -45,7 +45,8 @@ fixtures = [
 doc_events = {
     "Sales Invoice": {
         "before_validate": "erpnext_de_rechnung.custom.sales_invoice.before_validate",
-        "validate": "erpnext_de_rechnung.custom.sales_invoice.set_leistungszeitraum_anzeige"
+        "validate": "erpnext_de_rechnung.custom.sales_invoice.set_leistungszeitraum_anzeige",
+        "on_submit": "erpnext_de_rechnung.custom.sales_invoice.on_submit_summary"
     }
 }
 

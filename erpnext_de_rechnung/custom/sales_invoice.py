@@ -102,6 +102,60 @@ def before_validate(doc, method=None):
     except Exception:
         pass
 
+def on_submit_summary(doc, method=None):
+    """Show a human-readable summary after Submit so the user never has to
+    guess whether the email was dispatched or to whom. Fires after the
+    standard Notification hook has enqueued the email (if any)."""
+    from frappe import _
+
+    lines = [f"<b>{_('Rechnung wurde gebucht.')}</b>"]
+
+    # PDF attached?
+    pdfs = frappe.get_all(
+        "File",
+        filters={
+            "attached_to_doctype": "Sales Invoice",
+            "attached_to_name": doc.name,
+            "file_name": ["like", "%.pdf"],
+        },
+        fields=["file_name"],
+    )
+    if pdfs:
+        lines.append(f"📎 PDF: <b>{pdfs[0].file_name}</b>")
+
+    # Email queued?
+    if doc.get("auto_send_email"):
+        recent_queue = frappe.get_all(
+            "Email Queue",
+            filters={
+                "reference_doctype": "Sales Invoice",
+                "reference_name": doc.name,
+            },
+            fields=["name", "status", "modified"],
+            order_by="modified desc",
+            limit=1,
+        )
+        if recent_queue:
+            recipient = doc.get("contact_email") or "?"
+            lines.append(
+                f"✉️ E-Mail an <b>{recipient}</b> in Warteschlange gestellt."
+                f" Wird innerhalb von ~1 Minute versendet."
+            )
+        else:
+            lines.append("⚠️ E-Mail-Versand aktiviert, aber keine Queue-Eintragung gefunden.")
+    else:
+        lines.append(
+            "☐ Auto-Versand ist ausgeschaltet. Um manuell zu senden: "
+            "Menu \"...\" → Email."
+        )
+
+    frappe.msgprint(
+        "<br>".join(lines),
+        title=_("Status"),
+        indicator="green",
+    )
+
+
 def set_leistungszeitraum_anzeige(doc, method=None):
     typ = doc.get("leistungszeitraum_typ")
     if typ == "Datumsbereich":
