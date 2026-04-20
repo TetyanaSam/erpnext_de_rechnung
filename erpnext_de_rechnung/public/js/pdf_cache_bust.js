@@ -37,34 +37,48 @@ frappe.after_ajax(() => {
 // lazily when /app/print/... route opens, so we must patch AFTER that
 // bundle is loaded. Re-check on every page change.
 (function patch_drucken_button() {
-	function patch() {
+	let patched = false;
+
+	function patch_once() {
+		if (patched) return true;
 		const PV = frappe.ui && frappe.ui.form && frappe.ui.form.PrintView;
-		if (!PV || !PV.prototype || PV.prototype._drucken_patched) {
-			return;
-		}
-		PV.prototype._drucken_patched = true;
+		if (!PV || !PV.prototype) return false;
 		PV.prototype.printit = function () {
 			// Delegate to the same code path as the "PDF" button: open a
 			// freshly generated PDF in a new tab. Users print from the PDF
 			// viewer if they still want a paper copy.
 			this.render_pdf();
 		};
+		patched = true;
+		return true;
 	}
 
 	// The PrintView class ships in frappe's print.bundle.js which is
-	// lazy-loaded the first time the user navigates to /app/print/...
-	// So patch at every reasonable moment and let the guard clause above
-	// no-op the repeats.
+	// lazy-loaded the first time the user navigates to /app/print/... —
+	// and "first time" may be any moment during the user's session, not
+	// just right after page load. Start a long-running, low-rate poll
+	// that keeps checking until the class appears, then stops.
+	function start_polling(max_ms) {
+		const started = Date.now();
+		const iv = setInterval(() => {
+			if (patch_once() || Date.now() - started > max_ms) {
+				clearInterval(iv);
+			}
+		}, 400);
+	}
+
 	if (typeof frappe !== "undefined") {
-		patch();
-		if (frappe.after_ajax) frappe.after_ajax(patch);
-		if (frappe.router && typeof frappe.router.on === "function") {
-			frappe.router.on("change", patch);
+		if (!patch_once()) {
+			// Poll for up to 10 minutes after initial load. Covers the
+			// user opening print view well into their session.
+			start_polling(10 * 60 * 1000);
+			// Restart polling on every route change too — first-time
+			// navigation to /app/print is when the bundle loads.
+			if (frappe.router && typeof frappe.router.on === "function") {
+				frappe.router.on("change", () => {
+					if (!patched) start_polling(30 * 1000);
+				});
+			}
 		}
-		// Last-resort polling for the case where route change event fires
-		// before the print bundle finishes loading.
-		setTimeout(patch, 1500);
-		setTimeout(patch, 4000);
-		setTimeout(patch, 8000);
 	}
 })();
