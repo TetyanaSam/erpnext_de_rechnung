@@ -59,21 +59,40 @@ function reset_auto_send_from_company(frm) {
 }
 
 function auto_fill_payment_terms(frm) {
-	if (!frm.doc.customer || frm.doc.payment_terms_template) return;
+	if (!frm.doc.customer) return;
+	if (frm.doc.payment_terms_template && frm.doc.due_date) return;
 
-	// Prefer the Customer's default, fall back to the Company's default.
+	const apply = (template) => {
+		if (!template) return;
+		if (frm.doc.payment_terms_template !== template) {
+			frm.set_value("payment_terms_template", template);
+		}
+		// ERPNext's standard payment_terms_template handler rebuilds the
+		// schedule but on an empty draft (grand_total = 0) it may not yield
+		// a proper due_date in the UI. Compute it directly from the first
+		// row of the template as a belt-and-braces fallback.
+		frappe.db.get_doc("Payment Terms Template", template).then((tpl) => {
+			const term = tpl && tpl.terms && tpl.terms[0];
+			if (!term || !frm.doc.posting_date) return;
+			const credit_days = term.credit_days || 0;
+			const due = frappe.datetime.add_days(frm.doc.posting_date, credit_days);
+			if (due !== frm.doc.due_date) {
+				frm.set_value("due_date", due);
+			}
+		});
+	};
+
+	// Prefer Customer's default, fall back to Company's default.
 	frappe.db.get_value("Customer", frm.doc.customer, "payment_terms").then((r) => {
 		const from_customer = r.message && r.message.payment_terms;
 		if (from_customer) {
-			frm.set_value("payment_terms_template", from_customer);
+			apply(from_customer);
 			return;
 		}
 		if (!frm.doc.company) return;
 		frappe.db.get_value("Company", frm.doc.company, "payment_terms").then((r2) => {
 			const from_company = r2.message && r2.message.payment_terms;
-			if (from_company) {
-				frm.set_value("payment_terms_template", from_company);
-			}
+			apply(from_company);
 		});
 	});
 }
