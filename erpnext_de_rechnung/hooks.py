@@ -14,7 +14,7 @@ fixtures = [
              "leistungszeitraum_col", "leistungszeitraum_col2",
              "leistungszeitraum_anzeige", "leistungszeitraum_datum",
              "leistungszeitraum_monat", "leistungszeitraum_jahr",
-             "zweisprachig"]]]
+             "zweisprachig", "absender_im_anschriftenfeld"]]]
     },
     {
         "dt": "Print Format",
