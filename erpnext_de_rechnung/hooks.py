@@ -57,6 +57,11 @@ app_include_js = [
     "/assets/erpnext_de_rechnung/js/pdf_cache_bust.js"
 ]
 
+# Form-specific client scripts. Loaded lazily when the user opens that doctype.
+doctype_js = {
+    "Sales Invoice": "public/js/sales_invoice.js"
+}
+
 # Force our Sales Invoice Item column visibility after every migrate.
 # Fixtures alone only create missing rows; they don't overwrite values edited
 # via Customize Form. This hook re-asserts the desired state on each migrate.
