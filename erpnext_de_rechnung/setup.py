@@ -154,7 +154,12 @@ def _ensure_rechnung_notification():
     doc.send_system_notification = 0
     doc.attach_print = 0
     doc.attach_files = "All"
-    doc.enabled = 1
+    # Ship disabled by default. The user flips this to 1 after they've
+    # verified the Email Account works, the Customer Contact has the
+    # right email, and the auto_send_email safety flag is wired up the
+    # way they want. Auto-enabling is a footgun — tested once in
+    # production, when a test invoice very nearly went to a real client.
+    doc.enabled = 0
     doc.condition = "doc.auto_send_email"
     doc.send_to_all_assignees = 0
     doc.append(
