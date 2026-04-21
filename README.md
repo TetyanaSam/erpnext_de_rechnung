@@ -16,31 +16,49 @@ German invoicing has a lot of small rules that stock ERPNext doesn't handle out 
 
 **ERPNext DE Rechnung** bundles all of that into one installable app:
 
-- **A purpose-built Print Format `DE Rechnung`** that replaces the default Sales Invoice PDF. Everything is laid out for an A4 page with a running page header (`Company · Invoice-No · Seite 1 / 2`) and a three-column footer (contact / tax / bank).
-- **Optional bilingual mode** (German + English) per invoice. One checkbox on the Sales Invoice form; labels, table headers, VAT rows, payment terms and month names all flip to two-language format. Months are properly localized (`März 2026 / March 2026`, not a date range).
-- **Leistungszeitraum field group** on every Sales Invoice, with three display modes:
-    - `Monat/Jahr` → "April 2026" (bilingual: "April 2026 / April 2026")
-    - `Datum` → "15.04.2026"
-    - `Datumsbereich` → "01.04.2026 – 30.04.2026"
+### Print format
 
-  Pick the mode that fits the service; the PDF formats it accordingly. Month names are localized for the bilingual mode.
-- **Vorausrechnung detection**: if the posting date is before the service period starts, the document title automatically becomes `Vorausrechnung` (advance invoice) instead of `Rechnung`. Handy for recurring service contracts billed up-front.
-- **Auto-fill payment terms** from the customer or company defaults, so you don't have to pick them manually on every new invoice. The due date itself remains under your control — if you want to give a particular client more time, just set it on the invoice.
-- **Pinned form layout** for Sales Invoice items. The relevant columns (`Artikel`, `Bezeichnung`) stay visible in the line-item table through cache clears, migrations and Customize Form edits — no more hunting for the item code after an update. Enforced via an `after_migrate` hook so the setting survives updates.
-- **Page numbers in the running header** (`Seite 1 / 2` or bilingual `Seite / Page - 1 / 2`) — the default Frappe print pipeline doesn't place them by default.
-- **A running page header** on every page (company · invoice-no · page count), rendered by wkhtmltopdf as a true header-html so it repeats on continuation pages.
-- **A clean multi-page layout**: this app configures the margins and Frappe wrapper overrides so single-page invoices don't accidentally spill to a blank second page — a common gotcha when combining Frappe's header/footer HTML with custom CSS margins.
+- **`DE Rechnung`** — A4, DIN 5008-compliant layout. Recipient address lands at exactly 45 mm from the top so it fits any standard German window envelope.
+- **Optional bilingual mode** (`Zweisprachig`) per invoice — labels, table headers, VAT rows, payment terms and month names all flip to two-language format. Months are localized (`März 2026 / March 2026`, not a date range).
+- **Leistungszeitraum field group** on every Sales Invoice: `Monat/Jahr` → «April 2026», `Datum` → «15.04.2026», `Datumsbereich` → «01.04.2026 – 30.04.2026».
+- **Vorausrechnung detection** — if the posting date is before the service period starts, the heading switches to *Vorausrechnung / Advance Invoice*.
+- **Optional sender strip** in the envelope window (`Absender im Anschriftenfeld`) — small sender line above the recipient name, for physical letter-envelope use. Fixed 17.7 mm zone as per alyf-de DIN 5008 template, so toggling doesn't push the recipient out of the window.
+- **Running header** (`Company · Invoice-No · Seite 1 / 2`) and **three-column footer** (contact / tax / bank) with **bold IBAN** as the payment reference.
 
-### What's inside
+### VAT handling (Steuerhinweis)
 
-| Component | Purpose |
+Select on **Customer → E-Rechnung → Steuerhinweis** (auto-fetched onto each new Sales Invoice) or on **Company → Kleinunternehmer § 19 UStG**. The print format renders the appropriate legal footnote:
+
+| Case | Notice printed |
 |---|---|
-| Print Format `DE Rechnung` | Main output — replaces default Sales Invoice PDF |
-| Custom Field `zweisprachig` | Bilingual switch (Check) on Sales Invoice |
-| Leistungszeitraum section | 7 custom fields grouping type, start/end, display text |
-| Property Setters | Persistent column visibility on the item table |
-| `before_validate` / `validate` hooks | Payment-terms auto-fill, Leistungszeitraum display text |
-| `after_migrate` hook | Re-asserts pinned form layout after every upgrade |
+| Kleinunternehmer (Company flag) | *Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.* |
+| Reverse Charge (EU B2B services) | *Steuerschuldnerschaft des Leistungsempfängers (§ 13b UStG).* |
+| Innergem. Lieferung (EU goods) | *Steuerfreie innergemeinschaftliche Lieferung (§ 4 Nr. 1b UStG).* |
+| § 3a Abs. 2 (non-EU services) | *Nicht steuerbar nach § 3a Abs. 2 UStG — Leistungsort im Ausland.* |
+| Ausfuhrlieferung (non-EU goods) | *Steuerfreie Ausfuhrlieferung (§ 4 Nr. 1a UStG).* |
+| Normal VAT | VAT rows rendered as usual, no footnote. |
+
+All bilingual when `zweisprachig` is ticked.
+
+### Auto-send email with safety flag
+
+- `Sales Invoice.auto_send_email` (Check) — the Notification that emails the invoice PDF to the customer fires **only** when this flag is set. Visible right next to `Contact Email` on the form so the user eyeballs the recipient before Submit.
+- `Company.default_auto_send_email` (Check) — the default value the flag inherits on new invoices. Starts off (safe).
+- Post-Submit the app writes an Info-type **Comment on the document** with a time-stamped summary: *«PDF attached: RE2026-00xxx.pdf. Email to …@… queued.»* — visible in Activity, no toast required.
+
+### UX polish
+
+- **Pinned form layout** for Sales Invoice items — the `Artikel` and `Bezeichnung` columns stay visible in the line-item table through cache clears, migrations and Customize Form edits. Enforced via an `after_migrate` hook.
+- **Contact Email visible** by default on Sales Invoice (ERPNext ships it hidden).
+- **Drucken button** (on the Print view) now opens the real PDF instead of the preview print — prevents the layout mismatch between what you see on screen and what the client receives.
+- **PDF cache-busting** — a timestamp query param on every PDF download URL, plus `Cache-Control: no-store` response headers, so mobile browsers and PDF viewers never serve a stale version.
+- **Resilient PDF generation** — monkey-patches `frappe.utils.pdf.prepare_options` to always pass `load-error-handling=ignore` to wkhtmltopdf. Without this, any transient resource error (broken image link, network hiccup) aborts the whole PDF build and silently breaks the Notification flow.
+
+### Live form behaviour (client-side)
+
+- On a fresh invoice (including a Duplicate), `payment_terms_template` auto-fills from Customer → Company defaults and `due_date` is computed immediately from `posting_date + credit_days` — no save needed to see the right value.
+- A Duplicate re-fetches `contact_email` from the linked Contact's current primary email, overriding any stale snapshot copied from the source invoice.
+- The `auto_send_email` flag on a Duplicate is reset to the Company default, not inherited from the source invoice, so company-wide policy changes take effect immediately.
 
 ### Requirements
 
