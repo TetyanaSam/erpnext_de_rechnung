@@ -168,18 +168,6 @@ def _write_submit_comment(name):
             "reference_name": name,
             "content": "<br>".join(lines),
         }).insert(ignore_permissions=True)
-
-        # Also push a realtime toast so the user sees it without
-        # refreshing the page.
-        frappe.publish_realtime(
-            "msgprint",
-            {
-                "message": "<br>".join(lines),
-                "indicator": "green",
-                "alert": 1,
-            },
-            user=frappe.session.user,
-        )
     except Exception:
         # Never block the request path on summary-comment issues.
         frappe.log_error(frappe.get_traceback(), "on_submit_summary")
