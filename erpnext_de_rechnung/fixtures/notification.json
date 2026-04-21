@@ -1,0 +1,45 @@
+[
+ {
+  "attach_files": "All",
+  "attach_print": 0,
+  "channel": "Email",
+  "condition": "doc.auto_send_email",
+  "date_changed": null,
+  "days_in_advance": 0,
+  "docstatus": 0,
+  "doctype": "Notification",
+  "document_type": "Sales Invoice",
+  "enabled": 1,
+  "event": "Submit",
+  "from_attach_field": null,
+  "is_standard": 0,
+  "message": "{%- set contact = frappe.get_doc(\"Contact\", doc.contact_person) if doc.contact_person else None -%}\n{%- set gender = (contact.gender or \"\") if contact else \"\" -%}\n{%- set last = (contact.last_name or \"\") if contact else \"\" -%}\n\n<p>\n{%- if gender == \"Male\" and last -%}Sehr geehrter Herr {{ last }},\n{%- elif gender == \"Female\" and last -%}Sehr geehrte Frau {{ last }},\n{%- else -%}Sehr geehrte Damen und Herren,\n{%- endif -%}\n</p>\n\n<p>anbei erhalten Sie unsere Rechnung <strong>{{ doc.name }}</strong>\nvom {{ frappe.utils.formatdate(doc.posting_date, \"dd.MM.yyyy\") }}\nüber einen Gesamtbetrag von\n<strong>{{ frappe.utils.fmt_money(doc.grand_total, currency=doc.currency) }}</strong>.</p>\n\n<p>Für Rückfragen stehe ich Ihnen gerne zur Verfügung.</p>\n\n<p>Mit freundlichen Grüßen<br>\n{{ frappe.db.get_value(\"Company\", doc.company, \"company_name\") }}</p>\n\n<hr>\n\n<p>\n{%- if gender == \"Male\" and last -%}Dear Mr. {{ last }},\n{%- elif gender == \"Female\" and last -%}Dear Ms. {{ last }},\n{%- else -%}Dear Sir or Madam,\n{%- endif -%}\n</p>\n\n<p>Please find attached our invoice <strong>{{ doc.name }}</strong>\ndated {{ frappe.utils.formatdate(doc.posting_date, \"dd.MM.yyyy\") }}\nfor a total amount of\n<strong>{{ frappe.utils.fmt_money(doc.grand_total, currency=doc.currency) }}</strong>.</p>\n\n<p>If you have any questions, please do not hesitate to contact us.</p>\n\n<p>Kind regards,<br>\n{{ frappe.db.get_value(\"Company\", doc.company, \"company_name\") }}</p>\n",
+  "message_type": "Markdown",
+  "method": null,
+  "modified": "2026-04-21 03:56:33.234650",
+  "module": null,
+  "name": "Rechnung an Kunden senden",
+  "print_format": null,
+  "property_value": null,
+  "recipients": [
+   {
+    "bcc": null,
+    "cc": null,
+    "condition": null,
+    "parent": "Rechnung an Kunden senden",
+    "parentfield": "recipients",
+    "parenttype": "Notification",
+    "receiver_by_document_field": "contact_email",
+    "receiver_by_role": null
+   }
+  ],
+  "send_system_notification": 0,
+  "send_to_all_assignees": 0,
+  "sender": null,
+  "sender_email": null,
+  "set_property_after_alert": null,
+  "slack_webhook_url": null,
+  "subject": "Rechnung {{ doc.name }} / Invoice {{ doc.name }}",
+  "value_changed": null
+ }
+]

@@ -39,6 +39,10 @@ fixtures = [
             "Sales Invoice Item-item_code-in_list_view",
             "Sales Invoice-contact_email-hidden",
         ]]]
+    },
+    {
+        "dt": "Notification",
+        "filters": [["name", "=", "Rechnung an Kunden senden"]]
     }
 ]
 
@@ -63,11 +67,19 @@ doctype_js = {
     "Sales Invoice": "public/js/sales_invoice.js"
 }
 
-# Force our Sales Invoice Item column visibility after every migrate.
-# Fixtures alone only create missing rows; they don't overwrite values edited
-# via Customize Form. This hook re-asserts the desired state on each migrate.
+# Run once when the app is installed on a site: seeds the Notification,
+# tunes E Invoice Settings, PDF on Submit Settings, and the email-queue
+# scheduler frequency. All operations are idempotent so the same hook
+# can safely fire on upgrades too.
+after_install = "erpnext_de_rechnung.setup.ensure_defaults"
+
+# On every bench migrate: re-assert the item-column visibility Property
+# Setters (fixtures only create missing rows, they don't override a user's
+# Customize Form edits), and re-run the defaults seeder so new expectations
+# added to the app show up on existing sites.
 after_migrate = [
-    "erpnext_de_rechnung.custom.sales_invoice.ensure_invoice_item_columns"
+    "erpnext_de_rechnung.custom.sales_invoice.ensure_invoice_item_columns",
+    "erpnext_de_rechnung.setup.ensure_defaults",
 ]
 
 # Disable browser caching for PDF responses. Without this, mobile browsers and
